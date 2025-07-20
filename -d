@@ -1,0 +1,5 @@
+      PID    PPID    PGID     WINPID   TTY         UID    STIME COMMAND
+     1480    1360    1480       3580  cons0     197609 13:33:04 /usr/bin/PS
+     1359    1358    1358      22732  ?         197609 12:59:14 /c/Users/tutul/AppData/Local/Programs/Microsoft VS Code/Code
+     1358       1    1358      15452  ?         197609 12:59:14 /usr/bin/sh
+     1360       1    1360      51648  cons0     197609 13:32:39 /usr/bin/bash
