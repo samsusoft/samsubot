@@ -1,13 +1,13 @@
 version: "3.9"
 
 services:
-  redis:
+  samsubot_redis:
     image: redis:7
     container_name: samsubot_redis
     ports:
       - "6379:6379"
 
-  postgres:
+  samsubot_postgres:
     image: postgres:14
     container_name: samsubot_postgres
     environment:
@@ -19,7 +19,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-  mongo:
+  samsubot_mongodb:
     image: mongo:6.0
     container_name: samsubot_mongodb
     ports:
@@ -27,7 +27,7 @@ services:
     volumes:
       - mongodb_data:/data/db
 
-  backend:
+  samsubot_backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -37,13 +37,13 @@ services:
     volumes:
       - ./backend:/code
     env_file:
-      - .env
+      - .env.dev
     depends_on:
-      - redis
-      - postgres
-      - mongo
+      - samsubot_postgres
+      - samsubot_mongodb
+      - samsubot_redis
 
-  frontend:
+  samsubot_frontend:
     build:
       context: ./frontend/apps/samsubot-web
       dockerfile: Dockerfile
@@ -51,7 +51,7 @@ services:
     ports:
       - "8080:80"
     depends_on:
-      - backend
+      - samsubot_backend
 
 volumes:
   pgdata:

@@ -1,14 +1,26 @@
 from fastapi import FastAPI
-from apps.api import chat  # make sure this matches the import path
-from apps.api import auth_routes, protected   # new import for auth
+from fastapi.middleware.cors import CORSMiddleware  # 👈 NEW import
+
+from apps.api import chat  # your chat routes
+from apps.api import auth_routes, protected  # your auth and protected routes
 
 app = FastAPI()
 
+# ✅ Enable CORS (Cross-Origin Resource Sharing)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # ⚠️ Allow all in dev. Use specific domains in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ✅ Health check route
 @app.get("/")
 async def root():
     return {"message": "Welcome to SamsuBot Backend API!"}
 
-# include your chat router here
-app.include_router(chat.router, prefix="/chat", tags=["chat"]) # include the chat router
-app.include_router(auth_routes.router, prefix="/auth", tags=["auth"]) # include the auth router
-app.include_router(protected.router)  # register protected routes
+# ✅ Include your routers
+app.include_router(chat.router, prefix="/chat", tags=["chat"])
+app.include_router(auth_routes.router, prefix="/auth", tags=["auth"])
+app.include_router(protected.router)  # Protected routes

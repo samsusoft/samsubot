@@ -1,12 +1,24 @@
-# Use a lightweight web server image
+# Stage 1: Build the app
+FROM node:18-alpine AS builder
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./ 
+COPY vite.config.ts ./
+COPY postcss.config.js ./
+
+RUN npm install
+# TypeScript types for React
+RUN npm install --save-dev @types/react @types/react-dom
+
+
+COPY . .
+RUN npm run build
+
+# Stage 2: Serve with nginx
 FROM nginx:alpine
-
-# Copy your public files into the Nginx public directory
-COPY public/ /usr/share/nginx/html
-
-# Expose port 80
+RUN rm -rf /usr/share/nginx/html/*
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/nginx.conf
 EXPOSE 80
-
-# Start Nginx
 CMD ["nginx", "-g", "daemon off;"]
-

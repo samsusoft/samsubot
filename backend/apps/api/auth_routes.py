@@ -4,6 +4,7 @@ from apps.core.auth import verify_password, create_access_token
 from apps.core.userstore import fake_user
 
 router = APIRouter()
+print("Auth routes initialized")
 
 class LoginRequest(BaseModel):
     username: str
@@ -11,13 +12,17 @@ class LoginRequest(BaseModel):
 
 @router.post("/login")
 def login(request: LoginRequest):
-    if request.username != fake_user["username"]:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username or password"
-        )
+    print("Login request received")
+    if not request.username or not request.password:
+        if request.username != fake_user["username"]:
+            print("Invalid username or password")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid username or password"
+            )
 
     if not verify_password(request.password, fake_user["hashed_password"]):
+        print("NP: Invalid username or password")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password"
