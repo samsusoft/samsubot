@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
 function App() {
   // 🔐 Auth state
   const [username, setUsername] = useState('');
@@ -14,12 +17,12 @@ function App() {
   // 🔓 Login handler
   const handleLogin = async () => {
     try {
-      const response = await axios.post('http://localhost:8000/auth/login', {
+      const response = await axios.post(`${API_BASE}/auth/login`, {
         username,
         password,
       });
 
-      setToken(response.data.access_token); // assuming JWT is returned as access_token
+      setToken(response.data.access_token);
       alert('Login successful!');
     } catch (error) {
       console.error('Login failed:', error);
@@ -36,15 +39,21 @@ function App() {
 
     try {
       const response = await axios.post(
-        'http://samsubot_backend:8000/chat',
-        { message },
+        `${API_BASE}/chat/`,
+        {
+          session_id: "user123",
+          message: message,
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
         }
       );
-      setBotResponse(response.data.reply || 'No response');
+
+      console.log("Bot response:", response.data);
+      setBotResponse(response.data.message || 'No response');
     } catch (error) {
       console.error('Message failed:', error);
       alert('Failed to send message');
@@ -53,10 +62,10 @@ function App() {
 
   return (
     <div style={{ padding: 20 }}>
-      <h1>🧠SamsuBot</h1>
+      <h1>🧠 SamsuBot</h1>
 
       <div>
-        <h2>🔐Login</h2>
+        <h2>🔐 Login</h2>
         <input
           placeholder="Username"
           value={username}
@@ -74,7 +83,7 @@ function App() {
       </div>
 
       {token && (
-        <div>
+        <div style={{ marginTop: 30 }}>
           <h2>💬 Chat with Bot</h2>
           <textarea
             placeholder="Type your message"
