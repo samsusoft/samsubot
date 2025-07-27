@@ -8,5 +8,5 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["src", "../../../unwanted/ChatBot.tsx"]
+  "include": ["src", "../../../unwanted/ChatBot.tsx", "../../../unwanted/App1.tsx"]
 }

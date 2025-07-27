@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 function App() {
   // 🔐 Auth state
@@ -12,9 +13,6 @@ function App() {
   // 💬 Chat state
   const [message, setMessage] = useState('');
   const [botResponse, setBotResponse] = useState('');
-  const [chatHistory, setChatHistory] = useState<
-    { user_message: string; bot_response: string; timestamp: string }[]
-  >([]);
 
   // 🔓 Login handler
   const handleLogin = async () => {
@@ -24,32 +22,11 @@ function App() {
         password,
       });
 
-      const accessToken = response.data.access_token;
-      setToken(accessToken);
+      setToken(response.data.access_token);
       alert('Login successful!');
-
-      // ⏬ Load history after login
-      await loadChatHistory(accessToken);
     } catch (error) {
       console.error('Login failed:', error);
       alert('Login failed');
-    }
-  };
-
-  // 📜 Load chat history from backend
-  const loadChatHistory = async (accessToken: string) => {
-    try {
-      const response = await axios.get(
-        `${API_BASE}/chat/history?session_id=user123`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-      setChatHistory(response.data);
-    } catch (error) {
-      console.error('Failed to load chat history:', error);
     }
   };
 
@@ -64,26 +41,22 @@ function App() {
       const response = await axios.post(
         `${API_BASE}/chat/`,
         {
-          session_id: 'user123',
+          session_id: "user123",
           message: message,
         },
         {
           headers: {
-            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
           },
         }
       );
 
-      console.log('Bot response:', response.data);
+      console.log("Bot response:", response.data);
       setBotResponse(response.data.message || 'No response');
-      setMessage(''); // clear input
-
-      // Refresh chat history
-      await loadChatHistory(token);
     } catch (error) {
-      console.error('Message failed:', error);
-      alert('Failed to send message');
+       console.error('Message failed:', error);
+       alert(`Failed to send message: ${error?.response?.data?.detail || error.message}`);
     }
   };
 
@@ -91,7 +64,6 @@ function App() {
     <div style={{ padding: 20 }}>
       <h1>🧠 SamsuBot</h1>
 
-      {/* 🔐 Login Section */}
       <div>
         <h2>🔐 Login</h2>
         <input
@@ -110,7 +82,6 @@ function App() {
         <button onClick={handleLogin}>Login</button>
       </div>
 
-      {/* 💬 Chat Section */}
       {token && (
         <div style={{ marginTop: 30 }}>
           <h2>💬 Chat with Bot</h2>
@@ -125,18 +96,6 @@ function App() {
           <button onClick={handleSendMessage}>Send</button>
           <h3>🤖 Bot says:</h3>
           <p>{botResponse}</p>
-
-          {/* 📜 History Section */}
-          <h3>🗂 Chat History:</h3>
-          <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #ccc', padding: 10 }}>
-            {chatHistory.map((msg, index) => (
-              <div key={index} style={{ marginBottom: '10px' }}>
-                <div><strong>🧑 You:</strong> {msg.user_message}</div>
-                <div><strong>🤖 Bot:</strong> {msg.bot_response}</div>
-                <small>{new Date(msg.timestamp).toLocaleString()}</small>
-              </div>
-            ))}
-          </div>
         </div>
       )}
     </div>

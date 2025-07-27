@@ -24,8 +24,13 @@ services:
     container_name: samsubot_mongodb
     ports:
       - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root123
+      MONGO_INITDB_DATABASE: samsubot
     volumes:
       - mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
 
   samsubot_backend:
     build:
@@ -42,6 +47,8 @@ services:
       - samsubot_postgres
       - samsubot_mongodb
       - samsubot_redis
+    environment:
+      - MONGO_URI=mongodb://samsu:secret123@samsubot_mongodb:27017/samsubot
 
   samsubot_frontend:
     build:
