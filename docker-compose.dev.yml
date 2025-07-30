@@ -7,6 +7,14 @@ services:
     ports:
       - "6379:6379"
 
+  chroma:
+    image: chromadb/chroma
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./chroma_data:/chroma
+    restart: unless-stopped
+
   samsubot_postgres:
     image: postgres:14
     container_name: samsubot_postgres
@@ -32,6 +40,18 @@ services:
       - mongodb_data:/data/db
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
 
+  samsubot_llm:
+    image: ollama/ollama
+    container_name: samsubot_llm
+    ports:
+      - "11434:11434"
+    volumes:
+      - ~/.ollama:/root/.ollama
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    restart: unless-stopped
+
   samsubot_backend:
     build:
       context: ./backend
@@ -47,8 +67,10 @@ services:
       - samsubot_postgres
       - samsubot_mongodb
       - samsubot_redis
+      - samsubot_llm
     environment:
       - MONGO_URI=mongodb://samsu:secret123@samsubot_mongodb:27017/samsubot
+      - SAMSUBOT_LLM_BASE_URL=http://samsubot_llm:11434
 
   samsubot_frontend:
     build:

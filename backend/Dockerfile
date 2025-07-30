@@ -9,6 +9,9 @@ COPY . .
 # Add this line to help Python discover local modules
 ENV PYTHONPATH=/apps
 
+# Upgrade pip
+RUN python -m pip install --upgrade pip
+
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 

@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware  # 👈 NEW import
 from apps.api import chat  # your chat routes
 from apps.api import auth_routes, protected  # your auth and protected routes
 
+from apps.api import rag_routes  # 👈 add this import
+
 app = FastAPI()
 
 # ✅ Enable CORS (Cross-Origin Resource Sharing)
@@ -24,3 +26,4 @@ async def root():
 app.include_router(chat.router, prefix="/chat", tags=["chat"])
 app.include_router(auth_routes.router, prefix="/auth", tags=["auth"])
 app.include_router(protected.router, prefix="/protected", tags=["protected"]) # Protected routes
+app.include_router(rag_routes.router, prefix="/rag", tags=["rag"])  # 👈 add this route
