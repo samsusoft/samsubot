@@ -1,11 +1,12 @@
 # rag_service.py
-from langchain_community.llms import Ollama  # or better: from langchain_ollama import OllamaLLM
+#from langchain_community.llms import Ollama  # or better: from langchain_ollama import OllamaLLM
+from langchain_ollama import OllamaLLM
 from langchain_community.vectorstores import Chroma  # or better: from langchain_chroma import Chroma
 from langchain.chains import RetrievalQA
 from langchain_community.embeddings import HuggingFaceEmbeddings  # or better: from langchain_huggingface import HuggingFaceEmbeddings
 
 # 1. Connect to Ollama Mistral
-llm = Ollama(
+llm = OllamaLLM(
     model="mistral",
     base_url="http://samsubot_llm:11434"  # Use container name or service name
 )
@@ -21,4 +22,4 @@ qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=vectordb.as_retriever(
 
 def ask_question(query: str) -> str:
     """Runs RAG pipeline and returns the LLM response."""
-    return qa_chain.run(query)
+    return qa_chain.invoke({"query": query})
