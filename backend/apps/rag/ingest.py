@@ -1,7 +1,9 @@
+# ingest.py
+
 from langchain.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma  # or better: from langchain_chroma import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings  # or better: from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma  # Or use langchain_chroma if installed
+from langchain_community.embeddings import HuggingFaceEmbeddings  # Or use langchain_huggingface
 
 from apps.rag.config import *
 
@@ -16,6 +18,7 @@ def ingest(file_path: str):
     chunks = splitter.split_documents(docs)
 
     embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+
     db = Chroma.from_documents(
         documents=chunks,
         embedding=embeddings,

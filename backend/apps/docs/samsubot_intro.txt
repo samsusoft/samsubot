@@ -1,0 +1,2 @@
+SamsuBot is a customer support automation platform built using FastAPI, React, Docker, and Mistral LLM.
+It can respond to user queries in natural language and integrates with domain-specific data using RAG.

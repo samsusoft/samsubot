@@ -1,35 +1,36 @@
-from fastapi import APIRouter, HTTPException, status
+#\apps\api\auth_routes.py
+# Auth routes for user login and token generation
+"""Auth routes for user login and token generation"""
+from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from apps.core.auth import verify_password, create_access_token
-from apps.core.userstore import fake_user
+from apps.core.userstore import get_user_by_username
+from apps.core.settings import settings
 
 router = APIRouter()
-print("Auth routes initialized")
 
 class LoginRequest(BaseModel):
     username: str
     password: str
 
-@router.post("/login")
-def login(request: LoginRequest):
-    print("Login request received")
-    if not request.username or not request.password:
-        if request.username != fake_user["username"]:
-            print("Invalid username or password")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid username or password"
-            )
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
 
-    if not verify_password(request.password, fake_user["hashed_password"]):
-        print("NP: Invalid username or password")
+@router.post("/login", response_model=TokenResponse)
+async def login(request: LoginRequest):
+    """Authenticate user and return access token"""
+    user = get_user_by_username(request.username)
+    if not user or not verify_password(request.password, user["hashed_password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username or password"
+            detail="Invalid username or password",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
-    token = create_access_token(data={"sub": request.username})
-    return {
-        "access_token": token,
-        "token_type": "bearer"
-    }
+    access_token = create_access_token(
+        data={"sub": request.username},
+        expires_delta=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    )
+    return TokenResponse(access_token=access_token, token_type="bearer")

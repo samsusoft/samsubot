@@ -1,0 +1,146 @@
+version: "3.9"
+
+services:
+  samsubot_redis:
+    image: redis:7
+    container_name: samsubot_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - samsubot_net
+
+  chroma:
+    image: chromadb/chroma
+    container_name: samsubot_chroma
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma
+    restart: unless-stopped
+    networks:
+      - samsubot_net
+    #healthcheck:
+    #  test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+    #  interval: 10s
+    #  timeout: 5s
+    #  retries: 5
+
+  samsubot_postgres:
+    image: postgres:14
+    container_name: samsubot_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - samsubot_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  samsubot_mongodb:
+    image: mongo:6.0
+    container_name: samsubot_mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root123
+      MONGO_INITDB_DATABASE: samsubot
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - samsubot_net
+    healthcheck:
+      test: ["CMD", "mongosh", "--username", "root", "--password", "root123", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  samsubot_llm:
+    image: ollama/ollama
+    container_name: samsubot_llm 
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    restart: unless-stopped
+    networks:
+      - samsubot_net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    #healthcheck:
+    #  test: ["CMD-SHELL", "wget -qO- http://localhost:11434/api/version || exit 1"]
+    #  interval: 30s
+    #  timeout: 20s
+    #  retries: 10
+
+  samsubot_backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: samsubot_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/code
+    env_file:
+      - .env.dev
+    depends_on:
+      samsubot_postgres:
+        #condition: service_healthy
+      samsubot_mongodb:
+        #condition: service_healthy
+      samsubot_redis:
+        #condition: service_started
+      samsubot_llm:
+        #condition: service_healthy
+      chroma:
+        #condition: service_healthy
+    environment:
+      - MONGO_URI=mongodb://root:root123@samsubot_mongodb:27017/samsubot
+      - SAMSUBOT_LLM_BASE_URL=http://samsubot_llm:11434
+      - CHROMA_URL=http://samsubot_chroma:800
+    networks:
+      - samsubot_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  samsubot_frontend:
+    build:
+      context: ./frontend/apps/samsubot-web
+      dockerfile: Dockerfile
+    container_name: samsubot_frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - samsubot_backend
+    networks:
+      - samsubot_net
+
+volumes:
+  pgdata:
+  mongodb_data:
+  chroma_data:
+  ollama_data:
+
+networks:
+  samsubot_net:
+    driver: bridge

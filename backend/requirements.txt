@@ -1,3 +1,5 @@
+# backend/requirements.txt
+# Requirements for SamsuBot backend development
 asyncpg==0.29.0
 passlib[bcrypt]==1.7.4
 bcrypt>=3.2.0,<4.1
@@ -41,6 +43,7 @@ sqlalchemy[asyncio]==2.0.30
 # LLM hosting
 ollama
 langchain-ollama
+mistralai # Mistral models      
 
 # Add these for the latest LangChain ecosystem
 langchain-chroma

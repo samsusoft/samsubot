@@ -6,14 +6,19 @@ services:
     container_name: samsubot_redis
     ports:
       - "6379:6379"
+    networks:
+      - samsubot_net
 
   chroma:
     image: chromadb/chroma
+    container_name: samsubot_chroma
     ports:
       - "8001:8000"
     volumes:
-      - ./chroma_data:/chroma
+      - chroma_data:/chroma
     restart: unless-stopped
+    networks:
+      - samsubot_net
 
   samsubot_postgres:
     image: postgres:14
@@ -26,6 +31,13 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - samsubot_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   samsubot_mongodb:
     image: mongo:6.0
@@ -39,18 +51,33 @@ services:
     volumes:
       - mongodb_data:/data/db
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - samsubot_net
+    healthcheck:
+      test: ["CMD", "mongosh", "--username", "root", "--password", "root123", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   samsubot_llm:
     image: ollama/ollama
-    container_name: samsubot_llm
+    container_name: samsubot_llm 
     ports:
       - "11434:11434"
     volumes:
-      - ~/.ollama:/root/.ollama
-    runtime: nvidia
+      - ollama_data:/root/.ollama
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all
+      - OLLAMA_HOST=0.0.0.0
     restart: unless-stopped
+    networks:
+      - samsubot_net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   samsubot_backend:
     build:
@@ -64,13 +91,28 @@ services:
     env_file:
       - .env.dev
     depends_on:
-      - samsubot_postgres
-      - samsubot_mongodb
-      - samsubot_redis
-      - samsubot_llm
+      samsubot_postgres:
+        condition: service_healthy
+      samsubot_mongodb:
+        condition: service_healthy
+      samsubot_redis:
+        condition: service_started
+      samsubot_llm:
+        condition: service_started
+      chroma:
+        condition: service_started
     environment:
-      - MONGO_URI=mongodb://samsu:secret123@samsubot_mongodb:27017/samsubot
+      #- MONGO_URI=mongodb://root:root123@samsubot_mongodb:27017/samsubot?authSource=samsubot
+      - MONGO_URI=mongodb://samsu:secret123@samsubot_mongodb:27017/samsubot?authSource=samsubot
       - SAMSUBOT_LLM_BASE_URL=http://samsubot_llm:11434
+      - CHROMA_URL=http://samsubot_chroma:8001
+    networks:
+      - samsubot_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 120s
+      timeout: 5s
+      retries: 5
 
   samsubot_frontend:
     build:
@@ -81,7 +123,15 @@ services:
       - "8080:80"
     depends_on:
       - samsubot_backend
+    networks:
+      - samsubot_net
 
 volumes:
   pgdata:
   mongodb_data:
+  chroma_data:
+  ollama_data:
+
+networks:
+  samsubot_net:
+    driver: bridge

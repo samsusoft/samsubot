@@ -1,3 +1,5 @@
+# backend/apps/core/deps.py
+# Dependency for getting the current user from the JWT token    
 #Adding Middleware for Auth
 
 from fastapi import Depends, HTTPException, status

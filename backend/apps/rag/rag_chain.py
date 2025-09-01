@@ -7,6 +7,7 @@ OLLAMA_URL = "http://samsubot_llm:11434"
 
 async def run_query(query: str) -> str:
     context = retrieve_context(query)
+    
     full_prompt = f"""You are a helpful assistant.
 Use the following context to answer the question.
 If the context is not relevant, just say 'I don't know'.

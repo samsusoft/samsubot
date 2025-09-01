@@ -1,4 +1,4 @@
-# rag/retriever.py
+# apps/rag/retriever.py
 
 from apps.rag.vector_store import load_vector_store
 

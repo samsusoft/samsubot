@@ -1,22 +1,32 @@
-FROM python:3.11
+FROM python:3.11-slim
 
 # Set working directory
-WORKDIR /apps
+WORKDIR /code
 
-# Copy code
-COPY . .
-
-# Add this line to help Python discover local modules
-ENV PYTHONPATH=/apps
+# Install useful tools for debugging
+RUN apt-get update && apt-get install -y \
+    curl \
+    netcat-openbsd \
+    iputils-ping \
+    && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip
 RUN python -m pip install --upgrade pip
 
+# Copy dependencies
+COPY requirements.txt .
+
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Set PYTHONPATH so that `apps` becomes discoverable
-ENV PYTHONPATH="${PYTHONPATH}:/app"
+# Copy the backend code
+COPY . .
+
+# Set PYTHONPATH so apps is discoverable
+ENV PYTHONPATH=/code
+
+# Expose app port
+EXPOSE 8000
 
 # Run FastAPI app
 CMD ["uvicorn", "apps.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

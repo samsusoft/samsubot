@@ -1,4 +1,4 @@
-# rag/vector_store.py
+# apps/rag/vector_store.py
 
 #from langchain.embeddings import HuggingFaceEmbeddings
 from langchain_community.embeddings import HuggingFaceEmbeddings
