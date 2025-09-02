@@ -23,35 +23,67 @@ vectorstore = Chroma(
 )
 
 # 3. Ollama LLM
-llm = OllamaLLM(model="mistral", base_url=OLLAMA_BASE_URL)  # ✅ Modernized usage
+llm = OllamaLLM(model="mistral", base_url=OLLAMA_BASE_URL)
 
-# 4. Prompt Template (optional but recommended for formatting)
+# 4. Prompt Template (strict instruction to avoid hallucination)
 prompt_template = PromptTemplate.from_template(
-    "Use the following context to answer the question:\n\n{context}\n\nQuestion: {question}"
+    "You are a helpful assistant.\n\n"
+    "Use ONLY the following context to answer the question.\n\n"
+    "Context:\n{context}\n\n"
+    "Question: {question}\n\n"
+    "Rules:\n"
+    "- Answer ONLY based on the provided context.\n"
+    "- Do NOT use any external knowledge or make assumptions.\n"
+    "- After each statement or fact, cite its source using the file name in square brackets.\n"
+    "- If the answer cannot be found in the context, say exactly: 'I don't know based on the provided documents.'\n\n"
+    "Answer:"
 )
 
-# 5. Chain
+# 5. Retriever with MMR for diverse sources
+retriever = vectorstore.as_retriever(
+    search_type="mmr",               # ensures variety
+    search_kwargs={"k": 4, "fetch_k": 10}
+)
+
+# 6. Chain
 qa_chain = RetrievalQA.from_chain_type(
     llm=llm,
     chain_type="stuff",
-    retriever=vectorstore.as_retriever(),
+    retriever=retriever,
     return_source_documents=True,
     chain_type_kwargs={"prompt": prompt_template}
 )
 
-# 6. Query function
-async def run_rag_query(question: str) -> str:
-    print(f"Running RAG query: {question}")
+# 7. Query function
+async def run_rag_query(question: str) -> dict:
+    print(f"⚡ Running RAG query: {question}")
 
     loop = asyncio.get_running_loop()
 
-    # Run the synchronous invoke in a thread pool
     try:
-        # Run invoke in executor to avoid blocking event loop
-        print(f"RAG query Try block entered"),
-        result = await loop.run_in_executor(None, lambda: qa_chain.invoke({"query": question}))
-        print(f"RAG query result: {result}")
-        return result.get("result", "No answer returned")
+        result = await loop.run_in_executor(
+            None, lambda: qa_chain.invoke({"query": question})
+        )
+
+        print(f"✅ RAG query result: {result}")
+
+        # Extract clean answer
+        answer = result.get("result", "No answer returned")
+
+        # Extract sources (dedup + sorted)
+        sources = sorted(set(
+            doc.metadata.get("source", "Unknown")
+            for doc in result.get("source_documents", [])
+        ))
+
+        return {
+            "message": answer,
+            "sources": sources
+        }
+
     except Exception as e:
-        print(f"Error running RAG query: {e}")
-        return "❌ Error processing your query"
+        print(f"❌ Error running RAG query: {e}")
+        return {
+            "message": "❌ Error processing your query",
+            "sources": []
+        }

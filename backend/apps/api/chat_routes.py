@@ -1,4 +1,4 @@
-# apps/api/chat.py
+# apps/api/chat_routes.py
 # Chat routes for handling user queries with RAG (Retrieval-Augmented Generation)
 """Chat routes for handling user queries with RAG"""
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -18,6 +18,8 @@ async def chat(request: ChatRequest,current_user: dict = Depends(get_current_use
     print("Chat routes loaded successfully-chat.py - chat()"),
     try:
         response = await run_rag_query(request.message)
+        message = response["message"]
+        sources = response["sources"]
         print("Chat routes loaded successfully-chat_routes.py - rag_qry()"),
         # Save to chat history
         await save_chat_log(
@@ -25,8 +27,11 @@ async def chat(request: ChatRequest,current_user: dict = Depends(get_current_use
             user_message=request.message,
             bot_response=response
         )
-        
-        return ChatResponse(message=response)
+        return {
+            "message": message,
+            "sources": sources
+        }
+        #return ChatResponse(message=response)
     except Exception as e:
         logger.error(f"Error in chat endpoint: {e}")
         raise HTTPException(

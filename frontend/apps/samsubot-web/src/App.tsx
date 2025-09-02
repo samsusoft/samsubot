@@ -1,6 +1,6 @@
 // frontend/apps/samsubot-web/src/App.tsx
 // This is the main application component for the SamsuBot web interface.
-// frontend/apps/samsubot-web/src/App.tsx
+
 import React, { useState } from 'react';
 
 interface ChatMessage {
@@ -8,6 +8,7 @@ interface ChatMessage {
   type: 'user' | 'bot';
   content: string;
   timestamp: Date;
+  sources?: string[];
 }
 
 function App() {
@@ -70,14 +71,13 @@ function App() {
     setIsSending(true);
 
     try {
-      // Call RAG endpoint instead of /chat/
       const response = await fetch('/chat/rag', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ message: userMessage.content }), // matches backend's QueryRequest
+        body: JSON.stringify({ message: userMessage.content }),
       });
 
       if (response.ok) {
@@ -85,8 +85,9 @@ function App() {
         const botMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           type: 'bot',
-          content: data.message, // matches backend's QueryResponse
+          content: data.message,
           timestamp: new Date(),
+          sources: data.sources || [],
         };
         setMessages(prev => [...prev, botMessage]);
       } else {
@@ -94,17 +95,21 @@ function App() {
       }
     } catch (err) {
       console.error(err);
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        type: 'bot',
-        content: '❌ Sorry, I encountered an error while processing your RAG query.',
-        timestamp: new Date(),
-      }]);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          type: 'bot',
+          content: '❌ Sorry, I encountered an error while processing your RAG query.',
+          timestamp: new Date(),
+        },
+      ]);
     } finally {
       setIsSending(false);
     }
   };
 
+  // If not logged in, show login form
   if (!token) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -148,12 +153,16 @@ function App() {
     );
   }
 
+  // Main chat UI
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b px-4 py-4">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
           <h1 className="text-2xl font-bold">🧠 SamsuBot (RAG Mode)</h1>
-          <button onClick={logout} className="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200">
+          <button
+            onClick={logout}
+            className="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200"
+          >
             Logout
           </button>
         </div>
@@ -161,6 +170,7 @@ function App() {
 
       <main className="max-w-4xl mx-auto p-4">
         <div className="bg-white rounded-lg shadow-md h-96 flex flex-col">
+          {/* Chat messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.length === 0 ? (
               <div className="text-center text-gray-500 py-8">
@@ -169,33 +179,68 @@ function App() {
               </div>
             ) : (
               messages.map((msg) => (
-                <div key={msg.id} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    msg.type === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-900'
-                  }`}>
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      msg.type === 'user'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-900'
+                    }`}
+                  >
                     <p className="text-sm">{msg.content}</p>
-                    <p className={`text-xs mt-1 ${msg.type === 'user' ? 'text-blue-100' : 'text-gray-500'}`}>
-                      {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+
+                    {/* ✅ Show sources only for bot messages */}
+                    {msg.type === 'bot' && msg.sources && msg.sources.length > 0 && (
+                      <div className="mt-2 text-xs text-gray-500 border-t pt-1">
+                        <p className="font-semibold">Sources:</p>
+                        <ul className="list-disc list-inside">
+                          {msg.sources.map((src, idx) => (
+                            <li key={idx}>{src}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* ✅ Timestamp */}
+                    <p
+                      className={`text-xs mt-1 ${
+                        msg.type === 'user' ? 'text-blue-100' : 'text-gray-500'
+                      }`}
+                    >
+                      {msg.timestamp.toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </p>
                   </div>
                 </div>
               ))
             )}
+
+            {/* Typing dots */}
             {isSending && (
               <div className="flex justify-start">
                 <div className="bg-gray-100 rounded-lg px-4 py-2">
                   <div className="flex space-x-1">
                     <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    <div
+                      className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+                      style={{ animationDelay: '0.1s' }}
+                    ></div>
+                    <div
+                      className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+                      style={{ animationDelay: '0.2s' }}
+                    ></div>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
+          {/* Input form */}
           <div className="border-t p-4">
             <form onSubmit={sendMessage} className="flex space-x-3">
               <input

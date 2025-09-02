@@ -1,14 +1,15 @@
 # /apps/apps/api/models.py
 """Pydantic models for API requests and responses"""
-from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
+from pydantic import BaseModel, Field
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=1000)
 
 class ChatResponse(BaseModel):
     message: str
+    sources: List[str] = [] 
 
 class QueryRequest(BaseModel):
     q: str = Field(..., min_length=1, max_length=1000)

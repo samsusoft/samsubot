@@ -88,6 +88,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/code
+      - ./vectorstore:/code/vectorstore # Mount vectorstore directory
     env_file:
       - .env.dev
     depends_on:
@@ -102,7 +103,6 @@ services:
       chroma:
         condition: service_started
     environment:
-      #- MONGO_URI=mongodb://root:root123@samsubot_mongodb:27017/samsubot?authSource=samsubot
       - MONGO_URI=mongodb://samsu:secret123@samsubot_mongodb:27017/samsubot?authSource=samsubot
       - SAMSUBOT_LLM_BASE_URL=http://samsubot_llm:11434
       - CHROMA_URL=http://samsubot_chroma:8001

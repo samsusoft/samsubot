@@ -1,0 +1,122 @@
+1. Introduction
+
+SamsuBot is a customer support automation platform built using FastAPI (backend), React (frontend), Docker (deployment), Redis (cache), and ChromaDB (vector database).
+It supports:
+
+Knowledge-base powered Q&A (via RAG pipeline).
+
+Multi-channel integration (chat widget, web app, future scope: WhatsApp, Telegram).
+
+Admin dashboard for managing content.
+
+AI-assisted support for FAQs and workflows.
+
+2. System Requirements
+
+Server: Linux (Ubuntu 20.04+ recommended) or Windows WSL2
+
+Docker & Docker Compose: v20+
+
+Python: 3.9+ (for local dev)
+
+Node.js: 18+ (for frontend dev)
+
+Redis: 7.x
+
+ChromaDB: latest Docker image
+
+3. Installation
+Clone Repository
+git clone https://github.com/your-org/samsubot.git
+cd samsubot
+
+Setup Environment
+
+Create .env file in root:
+
+OPENAI_API_KEY=your_api_key_here
+REDIS_URL=redis://samsubot_redis:6379
+CHROMA_URL=http://samsubot_chroma:8000
+
+Start Services
+docker-compose up -d
+
+4. Components
+
+Backend (FastAPI)
+
+API endpoints for chat, ingestion, user auth.
+
+Runs at http://localhost:8000.
+
+Frontend (React)
+
+Chat widget & admin dashboard.
+
+Runs at http://localhost:3000.
+
+ChromaDB
+
+Vector storage for documents.
+
+Used by the RAG pipeline.
+
+Redis
+
+Caching for chat sessions.
+
+5. Document Ingestion
+Add Files
+
+Place documents inside:
+
+apps/docs/
+
+Rebuild Vector DB
+python -m apps.rag.ingest --rebuild
+
+
+Supported formats:
+
+.txt
+
+.md
+
+.pdf (if loaders installed)
+
+6. Usage
+Chat
+
+Open frontend → Ask questions.
+
+Bot responds using RAG pipeline + LLM.
+
+Admin
+
+Login to dashboard.
+
+Upload documents.
+
+Manage responses and FAQs.
+
+7. Troubleshooting
+
+Redis Connection Error → Check container:
+
+docker ps
+docker logs samsubot_redis
+
+
+ChromaDB not found → Ensure port 8001:8000 mapping exists.
+
+Ingest fails → Check apps/rag/ingest.py loaders.
+
+8. Future Enhancements
+
+Multi-language support.
+
+WhatsApp / Telegram integration.
+
+Analytics dashboard.
+
+Role-based access control.

@@ -8,6 +8,11 @@ RUN apt-get update && apt-get install -y \
     curl \
     netcat-openbsd \
     iputils-ping \
+    libgl1 \
+    libglib2.0-0 \
+    poppler-utils \
+    tesseract-ocr \
+    libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip
