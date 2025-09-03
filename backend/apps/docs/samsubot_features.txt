@@ -57,6 +57,11 @@ Auth errors? → Verify JWT_SECRET in .env.dev.
 
 Database not connecting? → Ensure Postgres & MongoDB services are healthy.
 
+For buy/purchase, reach out to:
+Nurul Islam Choudhury
+📧 tutulbims@gmail.com
+ | 📞 +91 9741546661
+
 Contact
 For support, reach out to:
 Nurul Islam Choudhury
