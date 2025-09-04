@@ -11,9 +11,6 @@ EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 # Where Chroma should persist the vector DB (mounted host directory)
 VECTOR_DB_PATH = "apps/rag/chroma_db"
 
-# Docker container name of Ollama
-OLLAMA_BASE_URL = "http://samsubot_llm:11434"
-
 # Document chunking parameters
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
