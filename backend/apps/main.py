@@ -6,7 +6,7 @@ import uvicorn
 
 # Import your route modules
 try:
-    from apps.api import auth_routes, protected, rag_routes, chat_routes
+    from apps.api import auth_routes, protected, chat_routes
     routes_imported = True
 except ImportError as e:
     print(f"Route import error: {e}")
@@ -54,21 +54,6 @@ try:
 except ImportError as e:
     print(f"Protected route import error: {e}")
 
-try:
-    from apps.api import rag_routes
-    app.include_router(rag_routes.router, prefix="/rag", tags=["rag"])
-    print("RAG routes loaded successfully")
-except ImportError as e:
-    print(f"RAG route import error: {e}")
-
-#if routes_imported:
-#    app.include_router(auth_routes.router, prefix="/auth", tags=["auth"])
-#    app.include_router(chat.router, prefix="/chat", tags=["chat"])
-#    app.include_router(protected.router, prefix="/protected", tags=["protected"])
-#    app.include_router(rag_routes.router, prefix="/rag", tags=["rag"])
-#    print("All routes loaded successfully")
-#else:
-#    print("Running in minimal mode - only health endpoints available")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -8,14 +8,15 @@ services:
       - "6379:6379"
     networks:
       - samsubot_net
-
-  chroma:
-    image: chromadb/chroma
-    container_name: samsubot_chroma
+  
+  qdrant:
+    image: qdrant/qdrant
+    container_name: samsubot_qdrant
     ports:
-      - "8001:8000"
+      - "6333:6333"   # REST API
+      - "6334:6334"   # gRPC
     volumes:
-      - chroma_data:/chroma
+      - qdrant_data:/qdrant/storage
     restart: unless-stopped
     networks:
       - samsubot_net
@@ -100,12 +101,12 @@ services:
         condition: service_started
       samsubot_llm:
         condition: service_started
-      chroma:
+      qdrant:
         condition: service_started
     environment:
       - MONGO_URI=mongodb://samsu:secret123@samsubot_mongodb:27017/samsubot?authSource=samsubot
       - SAMSUBOT_LLM_BASE_URL=http://samsubot_llm:11434
-      - CHROMA_URL=http://samsubot_chroma:8001
+      - QDRANT_URL=http://samsubot_qdrant:6333
     networks:
       - samsubot_net
     healthcheck:
@@ -129,7 +130,7 @@ services:
 volumes:
   pgdata:
   mongodb_data:
-  chroma_data:
+  qdrant_data:
   ollama_data:
 
 networks:

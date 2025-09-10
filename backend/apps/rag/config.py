@@ -8,8 +8,9 @@ DOCS_DIR = "apps/docs"
 # Keep this model IDENTICAL in ingest.py and your query code.
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
-# Where Chroma should persist the vector DB (mounted host directory)
-VECTOR_DB_PATH = "apps/rag/chroma_db"
+# Qdrant configuration
+VECTOR_DB_URL = "http://samsubot_qdrant:6333"
+QDRANT_COLLECTION = "vectorstore"
 
 # Docker container name of Ollama
 OLLAMA_BASE_URL = "http://samsubot_llm:11434"

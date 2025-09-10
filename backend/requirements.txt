@@ -17,18 +17,15 @@ langsmith>=0.3.45,<0.4.0
 langchain-text-splitters>=0.3.9,<1.0.0
 
 # Vector DB
-chromadb==1.0.15
+qdrant-client
 
 # Tokenizer
 tiktoken==0.6.0
 
 # RAG & Embeddings
 unstructured==0.14.3
-docx2txt==0.8
-pdfminer.six==20221105
-pypdf==3.17.4
 sentence-transformers==5.0.0
-unstructured[all-docs]
+
 
 # Tools
 python-dotenv==1.0.1
@@ -47,5 +44,5 @@ langchain-ollama
 mistralai # Mistral models      
 
 # Add these for the latest LangChain ecosystem
-langchain-chroma
+langchain-qdrant
 langchain-huggingface

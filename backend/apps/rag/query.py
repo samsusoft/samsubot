@@ -1,31 +1,85 @@
 # apps/rag/query.py
 
+import os
 import asyncio
+from qdrant_client import QdrantClient
+from qdrant_client.http import models as rest
+from langchain_qdrant import QdrantVectorStore
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_chroma import Chroma
+#from langchain_openai import OpenAIEmbeddings
 from langchain_ollama import OllamaLLM
 from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
-from apps.rag.config import VECTOR_DB_PATH, EMBEDDING_MODEL, OLLAMA_BASE_URL
+from apps.rag.config import VECTOR_DB_URL, EMBEDDING_MODEL, OLLAMA_BASE_URL, QDRANT_COLLECTION
 
-# Constants
-EMBEDDING_MODEL = EMBEDDING_MODEL
-PERSIST_DIR = VECTOR_DB_PATH
-OLLAMA_BASE_URL = OLLAMA_BASE_URL
 
-# 1. Embeddings
-embedding = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+# ---------------------------
+# Select Embedding Model
+# ---------------------------
+def get_embedding_model():
+    provider = os.getenv("EMBEDDING_PROVIDER", "local").lower()
+    print(f"⚡ Embedding provider: {provider}") 
 
-# 2. Vectorstore
-vectorstore = Chroma(
-    persist_directory=PERSIST_DIR,
-    embedding_function=embedding
+    if provider == "openai":
+        print("🔗 Using OpenAI embeddings (1536d)")
+        #return OpenAIEmbeddings(model="text-embedding-3-small")
+    else:
+        print(f"⚡ Using local HuggingFace embeddings: {EMBEDDING_MODEL}")
+        return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+
+
+# ---------------------------
+# Helper: Initialize Qdrant collection safely
+# ---------------------------
+def get_vectorstore():
+    client = QdrantClient(url=VECTOR_DB_URL)
+
+    # Choose vector dimension based on embedding provider
+    if os.getenv("EMBEDDING_PROVIDER", "local").lower() == "openai":
+        vector_size = 1536
+    else:
+        # BGE large embeddings are 1024d
+        vector_size = 384
+
+    # Ensure collection exists
+    if not client.collection_exists(QDRANT_COLLECTION):
+        client.create_collection(
+            collection_name=QDRANT_COLLECTION,
+            vectors_config=rest.VectorParams(size=vector_size, distance=rest.Distance.COSINE),
+        )
+        print(f"✅ Created collection: {QDRANT_COLLECTION} ({vector_size}d)")
+    else:
+        print(f"ℹ️ Using existing collection: {QDRANT_COLLECTION}")
+
+    embedding = get_embedding_model()
+
+    return QdrantVectorStore(
+        client=client,
+        collection_name=QDRANT_COLLECTION,
+        embedding=embedding
+    )
+
+
+# ---------------------------
+# Vectorstore + Retriever
+# ---------------------------
+vectorstore = get_vectorstore()
+
+retriever = vectorstore.as_retriever(
+    search_type="mmr",
+    search_kwargs={"k": 3, "fetch_k": 6}
 )
 
-# 3. Ollama LLM
+
+# ---------------------------
+# LLM
+# ---------------------------
 llm = OllamaLLM(model="mistral", base_url=OLLAMA_BASE_URL)
 
-# 4. Prompt Template (strict instructions for accurate, friendly answers)
+
+# ---------------------------
+# Prompt Template
+# ---------------------------
 prompt_template = PromptTemplate.from_template(
     "You are SamsuBot, a helpful assistant.\n\n"
     "Use ONLY the context provided below to answer the question.\n\n"
@@ -41,13 +95,10 @@ prompt_template = PromptTemplate.from_template(
     "Answer:"
 )
 
-# 5. Retriever with MMR for diverse sources
-retriever = vectorstore.as_retriever(
-    search_type="mmr",
-    search_kwargs={"k": 3, "fetch_k": 6}
-)
 
-# 6. Chain
+# ---------------------------
+# QA Chain
+# ---------------------------
 qa_chain = RetrievalQA.from_chain_type(
     llm=llm,
     chain_type="stuff",
@@ -56,7 +107,10 @@ qa_chain = RetrievalQA.from_chain_type(
     chain_type_kwargs={"prompt": prompt_template}
 )
 
-# 7. Query function
+
+# ---------------------------
+# Async query function
+# ---------------------------
 async def run_rag_query(question: str) -> dict:
     """
     Run RAG pipeline and return human-friendly answer with clean citations.
@@ -64,7 +118,7 @@ async def run_rag_query(question: str) -> dict:
     """
     loop = asyncio.get_running_loop()
     try:
-        # Handle common greetings separately
+        # Handle greetings
         greetings = ["hello", "hi", "hey", "good morning", "good afternoon", "good evening"]
         if question.lower().strip() in greetings:
             return {
@@ -72,7 +126,7 @@ async def run_rag_query(question: str) -> dict:
                 "sources": []
             }
 
-        # Run RAG query
+        # Run query
         result = await loop.run_in_executor(
             None, lambda: qa_chain.invoke({"query": question})
         )
@@ -90,22 +144,18 @@ async def run_rag_query(question: str) -> dict:
             for doc in result.get("source_documents", [])
         ))
 
-        # Optional: clean extra whitespace
+        # Clean answer
         answer = " ".join(answer.split())
 
-        return {
-            "message": answer,
-            "sources": sources
-        }
+        return {"message": answer, "sources": sources}
 
     except Exception as e:
         print(f"❌ Error running RAG query: {e}")
-        return {
-            "message": "❌ Error processing your query",
-            "sources": []
-        }
+        return {"message": "❌ Error processing your query", "sources": []}
 
-# 8. Thin wrapper for synchronous calls
+
+# ---------------------------
+# Sync wrapper
+# ---------------------------
 def ask_question(query: str):
-    import asyncio
     return asyncio.run(run_rag_query(query))
