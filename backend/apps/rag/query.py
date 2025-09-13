@@ -79,12 +79,13 @@ vectorstore = get_vectorstore()
 # High-performance Retriever
 # ---------------------------
 retriever = vectorstore.as_retriever(
-    search_type="similarity",
+    #search_type="similarity",
+    search_type="mmr",
     search_kwargs={
         "k": 3,  # Retrieve fewer documents for speed
         "search_params": {
             "hnsw_ef": 16,  # Much lower ef for faster search
-            "exact": False  # Use approximate search
+            "exact": True  # Use approximate search
         }
     }
 )
@@ -120,7 +121,13 @@ prompt_template = PromptTemplate.from_template(
     "You are SamsuBot. Answer concisely using only the context below.\n\n"
     "Context: {context}\n\n"
     "Question: {question}\n\n"
-    "Answer (1-2 sentences max):"
+    "Guidelines:\n"
+    "- Answer concisely and in a human-friendly manner.\n"
+    "- Do NOT include information beyond the context.\n"
+    "- If the context does not contain the answer, reply exactly:\n"
+        "  'I don't know based on the provided documents.'\n\n"
+    "Answer:"
+    "Answer (1-3 sentences max):"
 )
 
 # ---------------------------
