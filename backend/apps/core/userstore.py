@@ -8,6 +8,16 @@ _users_db = {
         "username": "admin",
         "hashed_password": get_password_hash("admin123"),
         "is_active": True
+    },
+    "admin1": {
+        "username": "admin1",
+        "hashed_password": get_password_hash("admin123"),
+        "is_active": True
+    },
+    "admin2": {
+        "username": "admin2",
+        "hashed_password": get_password_hash("admin123"),
+        "is_active": True
     }
 }
 

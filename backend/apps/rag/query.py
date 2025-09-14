@@ -1,168 +1,26 @@
 # apps/rag/query.py
 
-import os
 import time
 import asyncio
 import functools
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, List, Optional
-from qdrant_client import QdrantClient
-from qdrant_client.http import models as rest
-from langchain_qdrant import QdrantVectorStore
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_ollama import OllamaLLM
-from langchain.prompts import PromptTemplate
-from langchain.chains import RetrievalQA
+from typing import List
 from langchain.schema import Document
-from apps.rag.config import VECTOR_DB_URL, EMBEDDING_MODEL, OLLAMA_BASE_URL, QDRANT_COLLECTION
+from qdrant_client import QdrantClient
+
+from apps.rag.cache import cache_response, get_cached_response, clear_cache, get_cache_stats
+from apps.rag.llm import llm
+from apps.rag.prompt import rag_prompt
+from apps.rag.retriever import retriever
+from apps.rag.config import VECTOR_DB_URL, QDRANT_COLLECTION
 
 # ---------------------------
 # Performance optimizations
 # ---------------------------
-# Thread pool for CPU-bound operations
 executor = ThreadPoolExecutor(max_workers=4)
 
-# Cache for frequently asked questions
-response_cache = {}
-CACHE_MAX_SIZE = 100
-
 # ---------------------------
-# Global Embedding (load once)
-# ---------------------------
-embedding = HuggingFaceEmbeddings(
-    model_name=EMBEDDING_MODEL,
-    model_kwargs={'device': 'cpu'},  # Explicit device setting
-    encode_kwargs={'normalize_embeddings': True}  # Normalize for better similarity
-)
-print(f"⚡ Using local HuggingFace embeddings: {EMBEDDING_MODEL}")
-
-# ---------------------------
-# Optimized Vectorstore
-# ---------------------------
-def get_vectorstore():
-    client = QdrantClient(
-        url=VECTOR_DB_URL,
-        timeout=10,  # Reduced timeout
-        prefer_grpc=True  # Use gRPC for better performance
-    )
-    
-    if not client.collection_exists(QDRANT_COLLECTION):
-        client.create_collection(
-            collection_name=QDRANT_COLLECTION,
-            vectors_config=rest.VectorParams(
-                size=384, 
-                distance=rest.Distance.COSINE,
-                hnsw_config=rest.HnswConfigDiff(
-                    m=16,  # Reduced connections for faster search
-                    ef_construct=100,  # Balanced build/search performance
-                )
-            ),
-            optimizers_config=rest.OptimizersConfigDiff(
-                default_segment_number=2,  # Optimize for small collections
-                memmap_threshold=1000,
-                indexing_threshold=1000,
-            )
-        )
-        print(f"✅ Created optimized collection: {QDRANT_COLLECTION}")
-    else:
-        print(f"ℹ️ Using existing collection: {QDRANT_COLLECTION}")
-    
-    return QdrantVectorStore(
-        client=client, 
-        collection_name=QDRANT_COLLECTION, 
-        embedding=embedding
-    )
-
-vectorstore = get_vectorstore()
-
-# ---------------------------
-# High-performance Retriever
-# ---------------------------
-retriever = vectorstore.as_retriever(
-    #search_type="similarity",
-    search_type="mmr",
-    search_kwargs={
-        "k": 3,  # Retrieve fewer documents for speed
-        "search_params": {
-            "hnsw_ef": 16,  # Much lower ef for faster search
-            "exact": True  # Use approximate search
-        }
-    }
-)
-
-# ---------------------------
-# Optimized LLM (Non-streaming for speed)
-# ---------------------------
-llm = OllamaLLM(
-    model="mistral",
-    base_url=OLLAMA_BASE_URL,
-    streaming=False,  # Disable streaming for faster response
-    num_ctx=2048,     # Reduced context window
-    num_predict=150,  # Limit response length
-    temperature=0.1,  # Lower temperature for faster, more focused responses
-    top_p=0.9,
-    repeat_penalty=1.1
-)
-
-# Warm up LLM with connection pooling
-try:
-    print("🟡 Warming up LLM...")
-    start = time.time()
-    _ = llm.invoke("Hi")
-    warmup_time = time.time() - start
-    print(f"✅ LLM warmup complete ({warmup_time:.2f}s)")
-except Exception as e:
-    print(f"⚠️ LLM warmup failed: {e}")
-
-# ---------------------------
-# Optimized Prompt (shorter for speed)
-# ---------------------------
-prompt_template = PromptTemplate.from_template(
-    "You are SamsuBot. Answer concisely using only the context below.\n\n"
-    "Context: {context}\n\n"
-    "Question: {question}\n\n"
-    "Guidelines:\n"
-    "- Answer concisely and in a human-friendly manner.\n"
-    "- Do NOT include information beyond the context.\n"
-    "- If the context does not contain the answer, reply exactly:\n"
-        "  'I don't know based on the provided documents.'\n\n"
-    "Answer:"
-    "Answer (1-3 sentences max):"
-)
-
-# ---------------------------
-# Caching utilities
-# ---------------------------
-def get_cache_key(question: str) -> str:
-    """Generate a cache key for the question."""
-    return question.lower().strip()
-
-def cache_response(question: str, response: dict):
-    """Cache response with size limit."""
-    global response_cache
-    if len(response_cache) >= CACHE_MAX_SIZE:
-        # Remove oldest entry
-        oldest_key = next(iter(response_cache))
-        del response_cache[oldest_key]
-    
-    cache_key = get_cache_key(question)
-    response_cache[cache_key] = {
-        **response,
-        'cached_at': time.time()
-    }
-
-def get_cached_response(question: str) -> Optional[dict]:
-    """Get cached response if available and fresh."""
-    cache_key = get_cache_key(question)
-    if cache_key in response_cache:
-        cached = response_cache[cache_key]
-        # Cache valid for 5 minutes
-        if time.time() - cached['cached_at'] < 300:
-            return {k: v for k, v in cached.items() if k != 'cached_at'}
-    return None
-
-# ---------------------------
-# Optimized document processing
+# Document processing
 # ---------------------------
 def process_documents_sync(docs: List[Document], question: str) -> str:
     """Synchronously process documents with LLM."""
@@ -172,7 +30,7 @@ def process_documents_sync(docs: List[Document], question: str) -> str:
     # Truncate context if too long
     context_parts = []
     total_length = 0
-    max_context = 1500  # Reduced context length
+    max_context = 1500
     
     for doc in docs:
         content = doc.page_content
@@ -182,21 +40,21 @@ def process_documents_sync(docs: List[Document], question: str) -> str:
         else:
             # Add partial content if space allows
             remaining = max_context - total_length
-            if remaining > 100:  # Only if significant space left
+            if remaining > 100:
                 context_parts.append(content[:remaining] + "...")
             break
     
     context = "\n\n".join(context_parts)
     
-    # Generate response
-    prompt = prompt_template.format(context=context, question=question)
+    # Generate response using the imported prompt template
+    prompt = rag_prompt.format(context=context, question=question)
     return llm.invoke(prompt)
 
 # ---------------------------
-# High-speed async query
+# Main query function
 # ---------------------------
 async def run_rag_query(question: str) -> dict:
-    """Execute RAG query with maximum performance optimizations."""
+    """Execute RAG query with performance optimizations."""
     start_time = time.time()
     
     try:
@@ -217,10 +75,10 @@ async def run_rag_query(question: str) -> dict:
             cached_response['cached'] = True
             return cached_response
         
-        # Parallel execution of retrieval and embedding if needed
+        # Parallel execution
         loop = asyncio.get_running_loop()
         
-        # 1. Fast retrieval
+        # 1. Document retrieval
         retrieval_start = time.time()
         docs = await loop.run_in_executor(
             executor, 
@@ -228,7 +86,7 @@ async def run_rag_query(question: str) -> dict:
         )
         retrieval_time = time.time() - retrieval_start
         
-        # 2. Fast LLM processing
+        # 2. LLM processing
         llm_start = time.time()
         answer = await loop.run_in_executor(
             executor,
@@ -246,7 +104,7 @@ async def run_rag_query(question: str) -> dict:
         # Extract sources efficiently
         sources = list({
             doc.metadata.get("source", "Unknown") 
-            for doc in docs[:3]  # Limit sources for speed
+            for doc in docs[:3]
         })
         
         response_time = round(time.time() - start_time, 3)
@@ -288,7 +146,7 @@ async def run_batch_queries(questions: List[str]) -> List[dict]:
     return await asyncio.gather(*tasks, return_exceptions=True)
 
 # ---------------------------
-# Synchronous wrapper (optimized)
+# Synchronous wrapper //this can be moved to rag_service.py in the future
 # ---------------------------
 def ask_question(query: str) -> dict:
     """Synchronous wrapper with performance monitoring."""
@@ -306,20 +164,6 @@ def ask_question(query: str) -> dict:
 # ---------------------------
 # Performance utilities
 # ---------------------------
-def clear_cache():
-    """Clear the response cache."""
-    global response_cache
-    response_cache.clear()
-    print("Cache cleared.")
-
-def get_cache_stats():
-    """Get cache statistics."""
-    return {
-        "cache_size": len(response_cache),
-        "max_size": CACHE_MAX_SIZE,
-        "hit_ratio": "N/A"  # Could be implemented with counters
-    }
-
 def optimize_collection():
     """Optimize the Qdrant collection for better performance."""
     try:
